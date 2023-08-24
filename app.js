@@ -65,12 +65,11 @@ function routes(fastify, options, done) {
     reply.send({ messages: 'media uploads api for me-messages' });
   });
 
-  fastify.post('/uploadFile/:type_id/:ref_id', { onRequest: [fastify.authenticate] }, async function (req, reply) {
+  fastify.post('/uploadFile/:type_id', { onRequest: [fastify.authenticate] }, async function (req, reply) {
     try {
       const fileList = [];
       const mockDir = dirList;
       const type_id = req.params.type_id;
-      const ref_id = req.params.ref_id;
       const dir = mockDir.filter((x) => +x.type === +type_id).map(({ type, dir }) => dir).toString();
       const dirName = dir.replace('./uploads/', '');
       const accept = ['jpg', 'jepg', 'png', 'webp',];
@@ -106,7 +105,6 @@ function routes(fastify, options, done) {
         const setData = {
           updateItem: 0,
           type_id: type_id,
-          ref_id: ref_id,
           path: `${dirName}/${filename}`,
           media_type: (accept.includes(typeFile) ? 1 : (typeFile === 'pdf') ? 2 : (typeFile === 'mp4') ? 3 : 4),
         }
