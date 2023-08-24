@@ -130,7 +130,6 @@ function routes(fastify, options, done) {
       const fileList = [];
       const mockDir = dirList;
       const type_id = 11
-      const ref_id = global?.authentication?.publisher_id
       const dir = mockDir.filter((x) => +x.type === +type_id).map(({ type, dir }) => dir).toString();
       const dirName = dir.replace('./uploads/', '');
       const accept = ['jpg', 'jepg', 'png', 'webp'];
@@ -165,14 +164,13 @@ function routes(fastify, options, done) {
         }
         const setData = {
           type_id: type_id,
-          ref_id: ref_id,
           path: `${dirName}/${filename}`,
           document_type: (part.fieldname === 'idCard') ? 1 : (part.fieldname === 'selfieIdcard') ? 2 : (part.fieldname === 'nonThaiCard') ? 3 : (part.fieldname === 'passport') ? 4 : 0,
           media_type: (accept.includes(typeFile) ? 1 : (typeFile === 'pdf') ? 2 : (typeFile === 'mp4') ? 3 : 4),
         }
         fileList.push(setData)
       }
-      reply.status(200).send({ code: 200, status: 'Success', value: {publisher_id: ref_id, dataList: fileList} });
+      reply.status(200).send({ code: 200, status: 'Success', value: fileList });
 
     } catch (error) {
       console.error(error);
