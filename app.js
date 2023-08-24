@@ -157,7 +157,7 @@ function routes(fastify, options, done) {
               ])
               .on('end', () => resolve())
               .on('error', error => reject(error))
-              .save(`${dir}/vdo-${filename}`);
+              .save(`${dir}/${filename}`);
           });
         }else{
           reply.status(500).send({ code: 500, status: 'Error' });
