@@ -32,7 +32,7 @@ for (let dir of dirList) {
 function routes(fastify, options, done) {
   fastify.register(require('@fastify/formbody'));
   fastify.register(require('@fastify/jwt'), { secret: config.app.hashSecret, decode: { complete: true } });
-  fastify.register(require('@fastify/multipart'),  { limits: { fileSize: 15 * 1024 * 1024 } });
+  fastify.register(require('@fastify/multipart'), { limits: { fileSize: 15 * 1024 * 1024 } });
 
   fastify.register(require('@fastify/cors'), {
     origin: '*',
@@ -80,26 +80,45 @@ function routes(fastify, options, done) {
         const filename = await generateNewFilename(part.filename);
         if (accept.includes(typeFile)) {
           await pump(part.file, fs.createWriteStream(`${dir}/${filename}`));
-          await sharp(fs.readFileSync(`${dir}/${filename}`)).jpeg({ quality: 30 }).toFile(`${dir}/${filename}`);
-        }else if(videoExtensions.includes(typeFile)){
+          const image = sharp(fs.readFileSync(`${dir}/${filename}`));
+          const metadata = await image.metadata();
+          const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
+          const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
+          await image
+          .jpeg({ quality: 70, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
+          .resize({ width: newWidth, height: newHeight })
+          .toFile(`${dir}/${filename}`);
+        } else if (videoExtensions.includes(typeFile)) {
           await new Promise((resolve, reject) => {
             ffmpeg()
               .input(part.file)
               .outputOptions([
-                '-crf 31',
-                '-c:v libx264', // ใช้การบีบอัด H.264
-                '-b:v 100K',   // อัตราบิตสูงสุด
-                '-b:a', '100k',
-                '-c:a', 'mp3',
-                '-maxrate 100K', // อัตราบิตสูงสุด
-                '-bufsize 30K', // ขนาดแคชสำหรับบิตเรตสูงสุด
-                '-vf scale=256:144',
+                '-c:v libx264',
+                '-crf 30',
+                '-preset veryfast',
+                '-c:a aac',
+                '-b:a 30k',
+                '-r 24',
+                '-maxrate 360K',
+                '-bufsize 1K',
               ])
+              .on('start', commandLine => {
+                const videoInfo = commandLine.match(/-vf "scale=(\d+):(\d+)"/);
+                if (videoInfo) {
+                  const width = parseInt(videoInfo[1]);
+                  const height = parseInt(videoInfo[2]);
+                  if (width > 480 || height > 270) {
+                    const newWidth = width > 480 ? 480 : width;
+                    const newHeight = height > 270 ? 270 : height;
+                    ffmpeg().input(part.file).inputOptions([`-vf "scale=${newWidth}:${newHeight}"`]);
+                  }
+                }
+              })
               .on('end', () => resolve())
               .on('error', error => reject(error))
               .save(`${dir}/${filename}`);
           });
-        }else{
+        } else {
           reply.status(500).send({ code: 500, status: 'Error' });
         }
         const setData = {
@@ -140,26 +159,45 @@ function routes(fastify, options, done) {
         const filename = await generateNewFilename(part.filename);
         if (accept.includes(typeFile)) {
           await pump(part.file, fs.createWriteStream(`${dir}/${filename}`));
-          await sharp(fs.readFileSync(`${dir}/${filename}`)).jpeg({ quality: 70 }).toFile(`${dir}/${filename}`);
-        }else if(videoExtensions.includes(typeFile)){
+          const image = sharp(fs.readFileSync(`${dir}/${filename}`));
+          const metadata = await image.metadata();
+          const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
+          const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
+          await image
+          .jpeg({ quality: 70, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
+          .resize({ width: newWidth, height: newHeight })
+          .toFile(`${dir}/${filename}`);
+        } else if (videoExtensions.includes(typeFile)) {
           await new Promise((resolve, reject) => {
             ffmpeg()
               .input(part.file)
               .outputOptions([
-                '-crf 31',
-                '-c:v libx264', // ใช้การบีบอัด H.264
-                '-b:v 144K',   // อัตราบิตสูงสุด
-                '-b:a', '100k',
-                '-c:a', 'mp3',
-                '-maxrate 100K', // อัตราบิตสูงสุด
-                '-bufsize 30K', // ขนาดแคชสำหรับบิตเรตสูงสุด
-                '-vf scale=256:144',
+                '-c:v libx264',
+                '-crf 30',
+                '-preset veryfast',
+                '-c:a aac',
+                '-b:a 30k',
+                '-r 24',
+                '-maxrate 360K',
+                '-bufsize 1K',
               ])
+              .on('start', commandLine => {
+                const videoInfo = commandLine.match(/-vf "scale=(\d+):(\d+)"/);
+                if (videoInfo) {
+                  const width = parseInt(videoInfo[1]);
+                  const height = parseInt(videoInfo[2]);
+                  if (width > 480 || height > 270) {
+                    const newWidth = width > 480 ? 480 : width;
+                    const newHeight = height > 270 ? 270 : height;
+                    ffmpeg().input(part.file).inputOptions([`-vf "scale=${newWidth}:${newHeight}"`]);
+                  }
+                }
+              })
               .on('end', () => resolve())
               .on('error', error => reject(error))
               .save(`${dir}/${filename}`);
           });
-        }else{
+        } else {
           reply.status(500).send({ code: 500, status: 'Error' });
         }
         const setData = {
