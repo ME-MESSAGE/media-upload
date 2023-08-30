@@ -32,7 +32,7 @@ for (let dir of dirList) {
 function routes(fastify, options, done) {
   fastify.register(require('@fastify/formbody'));
   fastify.register(require('@fastify/jwt'), { secret: config.app.hashSecret, decode: { complete: true } });
-  fastify.register(require('@fastify/multipart'), { limits: { fileSize: 15 * 1024 * 1024 } });
+  fastify.register(require('@fastify/multipart'), { limits: { fileSize: 50 * 1024 * 1024 } });
 
   fastify.register(require('@fastify/cors'), {
     origin: '*',
@@ -70,6 +70,7 @@ function routes(fastify, options, done) {
       const fileList = [];
       const mockDir = dirList;
       const type_id = req.params.type_id;
+      const qType = req.query.qType;
       const dir = mockDir.filter((x) => +x.type === +type_id).map(({ type, dir }) => dir).toString();
       const dirName = dir.replace('./uploads/', '');
       const accept = ['jpg', 'jepg', 'png', 'webp',];
@@ -79,15 +80,50 @@ function routes(fastify, options, done) {
         const typeFile = part.filename.split(".")[1];
         const filename = await generateNewFilename(part.filename);
         if (accept.includes(typeFile)) {
-          await pump(part.file, fs.createWriteStream(`${dir}/${filename}`));
-          const image = sharp(fs.readFileSync(`${dir}/${filename}`));
-          const metadata = await image.metadata();
-          const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
-          const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
-          await image
-          .jpeg({ quality: 70, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
-          .resize({ width: newWidth, height: newHeight })
-          .toFile(`${dir}/${filename}`);
+          // await pump(part.file, fs.createWriteStream(`${dir}/${filename}`));
+          // const image = sharp(fs.readFileSync(`${dir}/${filename}`));
+          // const metadata = await image.metadata();
+          // const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
+          // const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
+          // await image
+          // .jpeg({ quality: 70, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
+          // .resize({ width: newWidth, height: newHeight })
+          // .toFile(`${dir}/${filename}`);
+          let chunks = [];
+          const quality = qType === 1 ? 70 : 40
+          let imgSizeInBytes = 0;
+          part.file.on('data', (chunk) => {
+            chunks.push(chunk);
+            imgSizeInBytes += chunk.length;
+          });
+
+          part.file.on('end', async () => {
+            const imgSizeInMB = imgSizeInBytes / (1024 * 1024);
+            if (imgSizeInMB < 3) {
+              const imgBuffer = Buffer.concat(chunks);
+              await fs.promises.writeFile(`${dir}/${filename}`, imgBuffer);
+              const image = sharp(imgBuffer);
+              const metadata = await image.metadata();
+              let newWidth = 0
+              let newHeight = 0
+              if (metadata.width >= 1920) {
+                newWidth = parseInt(metadata.width * 0.5)
+                newHeight = parseInt(metadata.height * 0.5)
+              } else if (metadata.width >= 960) {
+                newWidth = parseInt(metadata.width * 0.6)
+                newHeight = parseInt(metadata.height * 0.6)
+              } else {
+                newWidth = metadata.width
+                newHeight = metadata.height
+              }
+              await image
+                .jpeg({ quality: quality })
+                .resize({ width: newWidth, height: newHeight })
+                .toFile(`${dir}/${filename}`);
+            } else {
+              reply.status(500).send({ code: 500, status: 'Error', value: 0, messages: 'ขนาดไฟล์ใหญ่เกินไป' });
+            }
+          });
         } else if (videoExtensions.includes(typeFile)) {
           await new Promise((resolve, reject) => {
             ffmpeg()
@@ -100,7 +136,7 @@ function routes(fastify, options, done) {
                 '-b:a 30k',
                 '-r 24',
                 '-maxrate 360K',
-                '-bufsize 1K',
+                '-bufsize 50K',
               ])
               .on('start', commandLine => {
                 const videoInfo = commandLine.match(/-vf "scale=(\d+):(\d+)"/);
@@ -160,11 +196,11 @@ function routes(fastify, options, done) {
         if (accept.includes(typeFile)) {
           await pump(part.file, fs.createWriteStream(`${dir}/${filename}`));
           const image = sharp(fs.readFileSync(`${dir}/${filename}`));
-          const metadata = await image.metadata();
-          const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
-          const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
+          // const metadata = await image.metadata();
+          // const newWidth = (metadata.width > 1920) ? 1920 : metadata.width
+          // const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
           await image
-          .jpeg({ quality: 70, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
+          .jpeg({ quality: 60, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
           .resize({ width: newWidth, height: newHeight })
           .toFile(`${dir}/${filename}`);
         } else if (videoExtensions.includes(typeFile)) {
@@ -179,7 +215,7 @@ function routes(fastify, options, done) {
                 '-b:a 30k',
                 '-r 24',
                 '-maxrate 360K',
-                '-bufsize 1K',
+                '-bufsize 50K',
               ])
               .on('start', commandLine => {
                 const videoInfo = commandLine.match(/-vf "scale=(\d+):(\d+)"/);
