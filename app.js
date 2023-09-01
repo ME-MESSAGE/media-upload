@@ -252,6 +252,20 @@ function routes(fastify, options, done) {
     }
   });
 
+  fastify.post('/mediaDelete', { onRequest: [fastify.authenticate] }, async function (req, reply) {
+    try {
+      const data = req.body.mediaList
+      const dir = './uploads/'
+      for await (let media of data){
+        await fs.promises.unlink(`${dir}/${media.path}`);
+      }
+      await reply.status(200).send({ code: 200, status: 'Success' });
+    } catch (error) {
+      console.error(error);
+      reply.status(500).send({ code: 500, status: 'Error' });
+    }
+  });
+
   done();
 }
 
