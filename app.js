@@ -201,7 +201,7 @@ function routes(fastify, options, done) {
           // const newHeight = (metadata.height > 1080) ? 1080 : metadata.height
           await image
           .jpeg({ quality: 60, trellisQuantisation: true, chromaSubsampling: '4:2:0', optimizeScans: true, progressive: true})
-          .resize({ width: newWidth, height: newHeight })
+          // .resize({ width: newWidth, height: newHeight })
           .toFile(`${dir}/${filename}`);
         } else if (videoExtensions.includes(typeFile)) {
           await new Promise((resolve, reject) => {
