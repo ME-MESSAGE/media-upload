@@ -30,20 +30,7 @@ for (let dir of dirList) {
 }
 
 function routes(fastify, options, done) {
-  fastify.register(require('@fastify/formbody'));
   fastify.register(require('@fastify/jwt'), { secret: config.app.hashSecret, decode: { complete: true } });
-  fastify.register(require('@fastify/multipart'), { limits: { fileSize: 50 * 1024 * 1024 } });
-
-  fastify.register(require('@fastify/cors'), {
-    origin: '*',
-    allowedHeaders: ['*'],
-    exposedHeaders: ['Content-Type', 'Authorization', 'Accept',],
-    methods: ['GET', 'PUT', 'POST', 'DELETE'],
-    credentials: true,
-    maxAge: 86400,
-    preflightContinue: false
-  });
-
   fastify.decorate("authenticate", async function (request, reply) {
     try {
       const globalOptions = fastify.jwt.options
